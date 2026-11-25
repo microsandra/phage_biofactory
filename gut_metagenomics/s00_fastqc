@@ -1,0 +1,45 @@
+#!/bin/bash
+
+#$ -cwd
+#$ -V
+#$ -S /bin/bash
+#$ -pe openmpi 6
+
+source ~/.bashrc
+
+RAW_READS_DIR="01_biofactory_fastq"
+FASTQC_OUTPUT_DIR="01_biofactory_fastqc_reports"
+MULTIQC_OUTPUT_DIR="01_biofactory_multiqc_summary"
+CORES=6
+
+echo "Activating fastqc_env..."
+conda activate fastqc_env
+
+mkdir -p ${FASTQC_OUTPUT_DIR}
+
+echo "Running FastQC on all .fastq files in ${RAW_READS_DIR}..."
+fastqc \
+    --threads ${CORES} \
+    --outdir ${FASTQC_OUTPUT_DIR} \
+    ${RAW_READS_DIR}/*.fastq
+
+echo "FastQC analysis complete."
+conda deactivate
+
+echo "Activating multiqc_env..."
+conda activate multiqc_env
+
+# Create the output directory for the MultiQC report if it doesn't exist
+mkdir -p ${MULTIQC_OUTPUT_DIR}
+
+echo "Running MultiQC to generate the summary report..."
+multiqc \
+    --outdir ${MULTIQC_OUTPUT_DIR} \
+    ${FASTQC_OUTPUT_DIR}
+
+echo "MultiQC report generated in ${MULTIQC_OUTPUT_DIR}!"
+conda deactivate
+
+echo "QC analysis finished."
+
+

@@ -1,0 +1,61 @@
+#!/bin/sh
+##Directives start with ”#$”
+#$ -cwd
+#$ -V
+#$ -S /bin/bash
+#$ -pe openmpi 8
+
+
+source ~/.bashrc
+
+# Define the single input directory for this QC run
+INPUT_DIR="02_biofactory_strictfastp"
+
+# Define a specific output directory for this run's QC results
+QC_OUTPUT_DIR="02_biofactory_QC_strictfastp"
+CORES=8
+
+# Create the main output directory
+echo "Creating QC output directory: ${QC_OUTPUT_DIR}..."
+mkdir -p ${QC_OUTPUT_DIR}
+
+# Run FastQC ---
+echo "Activating FastQC environment: ${CONDA_FASTQC_ENV}..."
+conda activate fastqc_env
+
+echo "Starting FastQC on files in: ${INPUT_DIR}..."
+# Find all .fastq.gz files in the specified input directory
+FILES_TO_PROCESS=$(find "${INPUT_DIR}" -name "*.trimmed.fastq.gz")
+
+if [ -z "${FILES_TO_PROCESS}" ]; then
+    echo "Error: No '*.trimmed.fastq.gz' files found in '${INPUT_DIR}'. Exiting."
+    conda deactivate
+    exit 1
+fi
+
+# Run FastQC on the list of found files
+fastqc \
+    -o ${QC_OUTPUT_DIR} \
+    -t ${CORES} \
+    ${FILES_TO_PROCESS}
+
+echo "FastQC analysis complete."
+echo "Deactivating FastQC environment."
+conda deactivate
+
+# Run MultiQC to aggregate results ---
+echo "Activating MultiQC environment: ${CONDA_MULTIQC_ENV}..."
+conda activate multiqc_env
+
+echo "Starting MultiQC to aggregate all reports..."
+# Run MultiQC on the output directory where the FastQC reports were generated.
+multiqc \
+    --force \
+    -o ${QC_OUTPUT_DIR} \
+    ${QC_OUTPUT_DIR}
+
+echo "MultiQC aggregation complete!"
+echo "Final report is located in: ${QC_OUTPUT_DIR}/multiqc_report.html"
+
+conda deactivate
+

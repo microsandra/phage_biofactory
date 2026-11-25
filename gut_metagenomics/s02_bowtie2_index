@@ -1,0 +1,22 @@
+#!/bin/sh
+##Directives start with ”#$”
+#$ -cwd
+#$ -V
+#$ -S /bin/bash
+#$ -pe openmpi 8 
+
+
+source ~/.bashrc
+
+conda activate bowtie2_env
+
+OUT=03_bowtie_index
+mkdir $OUT
+
+bowtie2-build --threads 8 GCF_905115235.1_BSF_insect_genome.fasta $OUT/BSF_index
+bowtie2-build --threads 8 SE_RUS_R7_GZ_circle_final.fasta $OUT/R7_index
+bowtie2-build --threads 8 E_coli_BL21_genome_sequence.fasta $OUT/EC_BL21_index
+
+
+echo "Done. Indexes in $OUT/"
+

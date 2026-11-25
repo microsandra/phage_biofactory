@@ -1,0 +1,63 @@
+#!/bin/sh
+##Directives start with ”#$”
+#$ -cwd
+#$ -V
+#$ -S /bin/bash
+#$ -pe openmpi 8
+source ~/.bashrc
+
+# Activate the correct conda environment
+echo "Activating conda environment..."
+conda activate fastp_env
+
+# Define input, output, and log directories for the Larva samples
+INPUT_DIR="01_biofactory_fastq"
+OUTPUT_DIR="02_biofactory_strictfastp"
+LOG_DIR="02_biofactory_strictfastp_logs" # A dedicated log directory
+CORES=8
+
+# Create the output and log directories if they don't exist
+echo "Creating output and log directories..."
+mkdir -p ${OUTPUT_DIR}
+mkdir -p ${LOG_DIR}
+
+# The loop to process all Larva sample pairs
+echo "Starting strict trimming process with fastp..."
+for R1_FILE in ${INPUT_DIR}/Larva_*_1.fastq; do
+
+    # Define the corresponding R2 file path by replacing _1 with _2
+    R2_FILE=${R1_FILE/_1.fastq/_2.fastq}
+    
+    # Get the base name of the file (e.g., "Larva_01")
+    BASENAME=$(basename "${R1_FILE}" _1.fastq)
+    
+    # Print which file we are processing
+    echo "Processing sample: ${BASENAME}"
+
+    # Define output and log filenames, adding ".trimmed.fastq.gz" to the name
+    OUTPUT_R1="${OUTPUT_DIR}/${BASENAME}_1.trimmed.fastq.gz"
+    OUTPUT_R2="${OUTPUT_DIR}/${BASENAME}_2.trimmed.fastq.gz"
+    JSON_REPORT="${LOG_DIR}/${BASENAME}.fastp.json"
+    HTML_REPORT="${LOG_DIR}/${BASENAME}.fastp.html"
+    TXT_REPORT="${LOG_DIR}/${BASENAME}.fastp.log.txt"
+
+    # Run the fastp command with strict quality filtering and compression
+    fastp \
+        -i ${R1_FILE} \
+        -I ${R2_FILE} \
+        -o ${OUTPUT_R1} \
+        -O ${OUTPUT_R2} \
+        --thread ${CORES} \
+        --compression 6 \
+        --trim_poly_g \
+        --poly_g_min_len 10 \
+        -q 25 \
+        -u 20 \
+        -e 25 \
+        --length_required 30 \
+        --json ${JSON_REPORT} \
+        --html ${HTML_REPORT} 2> ${TXT_REPORT}
+done
+
+echo "fastp strict trimming complete!"
+

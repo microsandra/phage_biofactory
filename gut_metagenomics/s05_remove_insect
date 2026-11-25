@@ -1,0 +1,55 @@
+#!/bin/sh
+##Directives start with ”#$”
+#$ -cwd
+#$ -V
+#$ -S /bin/bash
+#$ -pe openmpi 8
+
+
+source ~/.bashrc
+
+conda activate samtools_env
+
+out_bam=04_bam
+mkdir $out_bam
+out_fastq=05_unmapped_reads_microbiome
+mkdir $out_fastq
+
+for sam in 03_mapped_insect_strict/Larva_*.sam; do
+    sample=$(basename "$sam" .sam)
+    echo $sample
+    
+	bam_all=$out_bam/${sample}_all.bam
+	bam_filt=$out_bam/${sample}_filt.bam
+	bam_sorted=$out_bam/${sample}_sorted.bam
+	bam_index=${bam_sorted}.bai
+    
+    # Convert SAM to BAM
+    samtools view -bS -o $bam_all $sam
+
+    # Extract unmapped paired reads to bam
+    samtools view -b -f 12 -F 0x900 -@ 8 -o $bam_filt $bam_all
+
+    # sort bam file
+    samtools sort -@ 8 -o $bam_sorted $bam_filt
+    
+    # index the bam file
+    samtools index -@ 8 -o $bam_index $bam_sorted
+
+    # Convert to FASTQ
+    samtools fastq -@ 8 \
+        -1 $out_fastq/${sample}_clean_1.fastq \
+        -2 $out_fastq/${sample}_clean_2.fastq \
+        -s trash -n \
+	$bam_sorted
+
+	# Count reads
+	readcount_all=$(samtools view -c "$bam_all")
+	readcount_unmapped=$(samtools view -c "$bam_filt")
+
+	echo -e "$sample\t$readcount_all\t$readcount_unmapped" >> readcount_larvae.tsv
+
+done
+
+
+
