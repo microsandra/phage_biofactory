@@ -7,7 +7,7 @@
 #$ -pe openmpi 8
 #$ -t 1-6
 
-# Submit after s05_depth_normalization.sh sample finishes.
+# Submit after s05_depth_normalization sample finishes.
 set -eo pipefail
 
 task=${SGE_TASK_ID:-${1:-}}
@@ -21,7 +21,7 @@ mpa_index=${MPA_INDEX:-mpa_vJan25_CHOCOPhlAnSGB_202503}
 r1="$input_dir/${sample}_R1.fastq.gz"
 r2="$input_dir/${sample}_R2.fastq.gz"
 [[ -s $r1 && -s $r2 && -s $input_dir/pairs.txt ]] || {
-    echo "Missing equal-depth inputs for $sample. Run s05_depth_normalization.sh first." >&2
+    echo "Missing equal-depth inputs for $sample. Run s05_depth_normalization first." >&2
     exit 1
 }
 expected_pairs=$(< "$input_dir/pairs.txt")

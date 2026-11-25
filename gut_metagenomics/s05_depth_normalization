@@ -8,13 +8,13 @@
 
 # Submit the count array first, then submit the sample array after all counts finish.
 #   mkdir -p logs
-#   qsub s05_depth_normalization.sh count
-#   qsub s05_depth_normalization.sh sample
+#   qsub s05_depth_normalization count
+#   qsub s05_depth_normalization sample
 set -eo pipefail
 
 task=${SGE_TASK_ID:-${2:-}}
 if [[ ! $task =~ ^[1-6]$ || ! ${1:-} =~ ^(count|sample)$ ]]; then
-    echo "Usage: qsub s05_depth_normalization.sh {count|sample}" >&2
+    echo "Usage: qsub s05_depth_normalization {count|sample}" >&2
     exit 1
 fi
 

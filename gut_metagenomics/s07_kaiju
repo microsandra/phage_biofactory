@@ -7,7 +7,7 @@
 #$ -pe openmpi 16
 #$ -t 1-6
 
-# Submit after s05_depth_normalization.sh sample finishes.
+# Submit after s05_depth_normalization sample finishes.
 # Request RAM appropriate for the installed .fmi index.
 set -eo pipefail
 
@@ -22,7 +22,7 @@ kaiju_fmi=${KAIJU_FMI:-"$KAIJU_DB/kaiju_db_nr_euk.fmi"}
 r1="$input_dir/${sample}_R1.fastq.gz"
 r2="$input_dir/${sample}_R2.fastq.gz"
 [[ -s $r1 && -s $r2 && -s $input_dir/pairs.txt ]] || {
-    echo "Missing equal-depth inputs for $sample. Run s05_depth_normalization.sh first." >&2
+    echo "Missing equal-depth inputs for $sample. Run s05_depth_normalization first." >&2
     exit 1
 }
 [[ -r $kaiju_fmi && -r $KAIJU_DB/nodes.dmp && -r $KAIJU_DB/names.dmp ]] || {
