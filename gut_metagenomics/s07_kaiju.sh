@@ -1,0 +1,68 @@
+#!/bin/bash
+#$ -N s07_kaiju
+#$ -cwd
+#$ -V
+#$ -j y
+#$ -o logs/
+#$ -pe openmpi 16
+#$ -t 1-6
+
+# Submit after s05_depth_normalization.sh sample finishes.
+# Request RAM appropriate for the installed .fmi index.
+set -eo pipefail
+
+task=${SGE_TASK_ID:-${1:-}}
+[[ $task =~ ^[1-6]$ ]] || { echo "Submit with qsub or pass a task number (1–6)." >&2; exit 1; }
+printf -v sample 'Larva_%02d' "$task"
+
+input_dir="${EQUAL_DEPTH_DIR:-taxonomy_equal_depth_reads}/$sample"
+out_dir=${KAIJU_OUT_DIR:-kaiju_equal_depth}
+: "${KAIJU_DB:?Export KAIJU_DB as the directory containing nodes.dmp and names.dmp.}"
+kaiju_fmi=${KAIJU_FMI:-"$KAIJU_DB/kaiju_db_nr_euk.fmi"}
+r1="$input_dir/${sample}_R1.fastq.gz"
+r2="$input_dir/${sample}_R2.fastq.gz"
+[[ -s $r1 && -s $r2 && -s $input_dir/pairs.txt ]] || {
+    echo "Missing equal-depth inputs for $sample. Run s05_depth_normalization.sh first." >&2
+    exit 1
+}
+[[ -r $kaiju_fmi && -r $KAIJU_DB/nodes.dmp && -r $KAIJU_DB/names.dmp ]] || {
+    echo "Cannot read the Kaiju index or taxonomy files. Check KAIJU_DB and KAIJU_FMI." >&2
+    exit 1
+}
+expected_pairs=$(< "$input_dir/pairs.txt")
+
+source "$(conda info --base)/etc/profile.d/conda.sh"
+conda activate "${KAIJU_CONDA_ENV:-kaiju_env}"
+echo "$sample: $expected_pairs input pairs, Kaiju index $kaiju_fmi"
+
+mkdir -p "$out_dir"
+sample_out="$out_dir/$sample"
+mkdir "$sample_out" || { echo "Output already exists: $sample_out" >&2; exit 1; }
+trap 'rm -rf -- "$sample_out"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+out="$sample_out/$sample.kaiju.out"
+kaiju -t "$KAIJU_DB/nodes.dmp" -f "$kaiju_fmi" \
+    -i "$r1" -j "$r2" -z "${NSLOTS:-16}" -o "$out"
+
+observed_pairs=$(wc -l < "$out" | tr -d '[:space:]')
+if [[ $observed_pairs != "$expected_pairs" ]]; then
+    echo "$sample: Kaiju reported $observed_pairs pairs, expected $expected_pairs." >&2
+    exit 1
+fi
+
+for rank in phylum genus species; do
+    kaiju2table -t "$KAIJU_DB/nodes.dmp" -n "$KAIJU_DB/names.dmp" \
+        -r "$rank" -o "$sample_out/$sample.kaiju_$rank.tsv" "$out"
+done
+
+if [[ ${KAIJU_ADD_TAXON_NAMES:-1} == 1 ]]; then
+    kaiju-addTaxonNames -t "$KAIJU_DB/nodes.dmp" -n "$KAIJU_DB/names.dmp" \
+        -r superkingdom,phylum,class,order,family,genus,species \
+        -i "$out" -o "$out.names"
+    gzip -- "$out.names"
+fi
+gzip -- "$out"
+trap - EXIT INT TERM
+echo "$sample: verified $observed_pairs read pairs processed"
